@@ -19,7 +19,8 @@ spec:
       description: Should EC violations cause the pipeline to fail?
       name: ec-strict
       type: string
-    - description: The public key that EC should use to verify signatures
+    - default: k8s://$(context.pipelineRun.namespace)/cosign-pub
+      description: The public key that EC should use to verify signatures
       name: ec-public-key
       type: string
     - default: http://rekor-server.rhtap.svc
@@ -45,15 +46,6 @@ spec:
         - name: basic-auth
           workspace: git-auth
     - name: gather-deploy-images
-      params:
-        - name: gitops-repo-url
-          value: $(params.git-url)
-        - name: revision
-          value: $(params.revision)
-        - name: target-branch
-          value: $(params.target-branch)
-        - name: commit-message
-          value: $(params.commit-message)
       runAfter:
         - clone-repository
       taskRef:
