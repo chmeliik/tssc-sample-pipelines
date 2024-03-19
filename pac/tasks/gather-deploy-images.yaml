@@ -9,7 +9,11 @@ spec:
       name: source
   params:
     - name: TARGET_BRANCH
-      description: If specified, will gather only the images that changed between the current revision and the target branch. Useful for pull requests.
+      description: >
+        If specified, will gather only the images that changed between
+        the current revision and the target branch. Useful for pull requests.
+        Note that the repository cloned on the source workspace must already
+        contain the origin/$TARGET_BRANCH reference.
       type: string
       default: ""
   results:
@@ -30,10 +34,6 @@ spec:
 
       IMAGE_PATH='.spec.template.spec.containers[0].image'
       component_name=$(yq .metadata.name application.yaml)
-
-      if [ -n "$TARGET_BRANCH" ]; then
-        git fetch origin "$TARGET_BRANCH"
-      fi
 
       for env in development stage prod; do
         yaml_path=components/${component_name}/overlays/${env}/deployment-patch.yaml
