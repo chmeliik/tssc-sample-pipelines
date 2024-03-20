@@ -81,7 +81,7 @@ spec:
       taskRef:
         name: verify-enterprise-contract
       when:
-        - input: $(tasks.gather-deploy-images.results.NOTHING_TO_VERIFY)
+        - input: $(tasks.gather-deploy-images.results.IMAGES_TO_VERIFY)
           operator: notin
           values:
-            - "true"
+            - ""
