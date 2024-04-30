@@ -35,6 +35,10 @@ spec:
       description: The TUF mirror that EC should use
       name: ec-tuf-mirror
       type: string
+    - default: tpa-secret
+      description: The name of the Secret that contains Trustification (TPA) configuration
+      name: trustification-secret-name
+      type: string
   tasks:
     - name: clone-repository
       params:
@@ -62,10 +66,27 @@ spec:
       workspaces:
         - name: source
           workspace: workspace
+    - name: get-images-to-verify
+      params:
+        - name: INPUT
+          value: $(tasks.gather-deploy-images.results.IMAGES_TO_VERIFY)
+        - name: JQ_ARGS
+          value:
+            - --compact-output
+            - .components = (.components | unique_by(.containerImage) | map(del(.env)))
+      runAfter:
+        - gather-deploy-images
+      taskRef:
+        name: jq
+      when:
+        - input: $(tasks.gather-deploy-images.results.IMAGES_TO_VERIFY)
+          operator: notin
+          values:
+            - ""
     - name: verify-enteprise-contract
       params:
         - name: IMAGES
-          value: $(tasks.gather-deploy-images.results.IMAGES_TO_VERIFY)
+          value: $(tasks.get-images-to-verify.results.RESULT)
         - name: STRICT
           value: $(params.ec-strict)
         - name: POLICY_CONFIGURATION
@@ -77,11 +98,58 @@ spec:
         - name: TUF_MIRROR
           value: $(params.ec-tuf-mirror)
       runAfter:
-        - gather-deploy-images
+        - get-images-to-verify
       taskRef:
         name: verify-enterprise-contract
+    - name: get-images-to-upload-sbom
+      params:
+        - name: INPUT
+          value: $(tasks.gather-deploy-images.results.IMAGES_TO_VERIFY)
+        - name: JQ_ARGS
+          value:
+            - --compact-output
+            - .components | map(select(.env != "development") | .containerImage) | unique
+        - name: RETURN_ARRAY
+          value: "true"
+      runAfter:
+        - gather-deploy-images
+      taskRef:
+        name: jq
       when:
         - input: $(tasks.gather-deploy-images.results.IMAGES_TO_VERIFY)
           operator: notin
           values:
             - ""
+    - name: download-sboms
+      params:
+        - name: IMAGES
+          value:
+            - $(tasks.get-images-to-upload-sbom.results.ARRAY_RESULT[*])
+        - name: SBOMS_DIR
+          value: sboms
+        - name: PUBLIC_KEY
+          value: $(params.ec-public-key)
+        - name: REKOR_HOST
+          value: $(params.ec-rekor-host)
+        - name: TUF_MIRROR
+          value: $(params.ec-tuf-mirror)
+      runAfter:
+        - get-images-to-upload-sbom
+      taskRef:
+        name: download-sbom-from-url-in-attestation
+      workspaces:
+        - name: sboms
+          workspace: workspace
+    - name: upload-sboms-to-trustification
+      params:
+        - name: SBOMS_DIR
+          value: sboms
+        - name: TRUSTIFICATION_SECRET_NAME
+          value: $(params.trustification-secret-name)
+      runAfter:
+        - download-sboms
+      taskRef:
+        name: upload-sbom-to-trustification
+      workspaces:
+        - name: sboms
+          workspace: workspace

@@ -48,10 +48,11 @@ spec:
           fi
         fi
 
-        printf "%s\n" "$image"
-      done | sort -u > /tmp/all-images.txt
+        jq --null-input --compact-output --arg env "$env" --arg image "$image" \
+          '{env: $env, containerImage: $image}'
+      done > /tmp/all-images.json
 
-      if [ ! -s /tmp/all-images.txt ]; then
+      if [ ! -s /tmp/all-images.json ]; then
         echo "No images to verify"
         touch $(results.IMAGES_TO_VERIFY.path)
         exit 0
@@ -60,13 +61,6 @@ spec:
       # TODO: each component needs a {"source": {"git": {"url": "...", "revision": "..."}}}
       #       will that be too large for Tekton results?
 
-      jq --compact-output --raw-input --slurp < /tmp/all-images.txt '
-        # split input file
-        split("\n") |
-        # drop empty lines
-        map(select(length > 0)) |
-        # convert into EC-compatible format
-        {
-          "components": map({"containerImage": .})
-        }
-      ' | tee $(results.IMAGES_TO_VERIFY.path)
+      # convert into EC-compatible format
+      jq --compact-output --slurp < /tmp/all-images.json '{"components": .}' |
+        tee $(results.IMAGES_TO_VERIFY.path)

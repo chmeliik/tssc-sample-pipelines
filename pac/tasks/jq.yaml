@@ -1,0 +1,57 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  annotations:
+    tekton.dev/tags: "json, jq"
+  name: jq
+spec:
+  description: Run [jq](https://jqlang.github.io/jq/).
+  params:
+  - name: INPUT
+    type: string
+  - name: JQ_ARGS
+    type: array
+  - name: RETURN_ARRAY
+    type: string
+    default: "false"
+  - name: ECHO_INPUT
+    type: string
+    default: "false"
+  results:
+  - name: RESULT
+    type: string
+  - name: ARRAY_RESULT
+    type: array
+  stepTemplate:
+    env:
+      - name: INPUT
+        value: $(params.INPUT)
+      - name: RETURN_ARRAY
+        value: $(params.RETURN_ARRAY)
+      - name: ECHO_INPUT
+        value: $(params.ECHO_INPUT)
+  steps:
+  - name: jq
+    image: quay.io/redhat-appstudio/appstudio-utils:5bd7d6cb0b17f9f2eab043a8ad16ba3d90551bc2@sha256:8c7fcf86af40c71aeb58e4279625c8308af5144e2f6b8e28b0ec7e795260e5f7
+    script: |
+      #!/usr/bin/env bash
+      set -o errexit -o nounset -o pipefail
+
+      if [[ "$ECHO_INPUT" = "true" ]]; then
+        printf "INPUT: %s\n" "$INPUT" >&2
+      fi
+
+      output="$(jq "$@" <<< "$INPUT")"
+
+      if [[ "$RETURN_ARRAY" = "true" ]]; then
+        result_path=$(results.ARRAY_RESULT.path)
+        if [[ -z "$output" ]]; then
+          output='[]'
+        fi
+      else
+        result_path=$(results.RESULT.path)
+      fi
+
+      printf "%s" "$output" | tee "$result_path"
+    args:
+      - $(params.JQ_ARGS[*])
