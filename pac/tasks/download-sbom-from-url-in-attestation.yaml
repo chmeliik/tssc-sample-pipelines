@@ -42,6 +42,8 @@ spec:
     default: "."
     description: >-
       Path to directory (relative to the 'sboms' workspace) where SBOMs should be downloaded.
+      Note: even if there are no SBOMs to download, the task will ensure this directory exists
+      (and will leave it empty).
     type: string
 
   - name: HTTP_RETRIES
@@ -282,6 +284,8 @@ spec:
               error("Expected to find exactly one SBOM_BLOB_URL result, found \(length): \(.)")
             end'
       }
+
+      mkdir -p "$SBOMS_DIR"
 
       jq -r '.components[].containerImage' <<< "$IMAGES" | while read -r image; do
           echo "Looking for SBOM_BLOB_URL result in the attestation for $image"
