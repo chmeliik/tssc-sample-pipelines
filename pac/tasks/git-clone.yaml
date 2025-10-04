@@ -170,7 +170,7 @@ spec:
       value: $(workspaces.basic-auth.bound)
     - name: WORKSPACE_BASIC_AUTH_DIRECTORY_PATH
       value: $(workspaces.basic-auth.path)
-    image: quay.io/konflux-ci/git-clone@sha256:0e92b8a655d7b2eeba6442bbe008c92ad7f21ea23d8ad76cd95d45353338c1e0
+    image: quay.io/konflux-ci/git-clone@sha256:9baece0395f7b08540f8bfcfcc396533ef0e5bcb8b43f6a2c8fe98fd595c8b85
     computeResources: {}
     securityContext:
       runAsUser: 0
@@ -253,7 +253,8 @@ spec:
         -sslVerify="${PARAM_SSL_VERIFY}" \
         -submodules="${PARAM_SUBMODULES}" \
         -depth="${PARAM_DEPTH}" \
-        -sparseCheckoutDirectories="${PARAM_SPARSE_CHECKOUT_DIRECTORIES}"
+        -sparseCheckoutDirectories="${PARAM_SPARSE_CHECKOUT_DIRECTORIES}" \
+        -retryMaxAttempts=10
       cd "${CHECKOUT_DIR}"
       RESULT_SHA="$(git rev-parse HEAD)"
       RESULT_SHA_SHORT="$(git rev-parse --short="${PARAM_SHORT_COMMIT_LENGTH}" HEAD)"
@@ -264,7 +265,7 @@ spec:
       if [ "${PARAM_MERGE_TARGET_BRANCH}" = "true" ]; then
         echo "Merge option enabled. Attempting to merge target branch '${PARAM_TARGET_BRANCH}' into HEAD (${RESULT_SHA})."
         echo "Fetching target branch '${PARAM_TARGET_BRANCH}'..."
-        git fetch origin "${PARAM_TARGET_BRANCH}"
+        retry git fetch origin "${PARAM_TARGET_BRANCH}"
         FETCH_EXIT_CODE="$?"
         if [ "${FETCH_EXIT_CODE}" != "0" ]; then
           echo "ERROR: Failed to fetch target branch '${PARAM_TARGET_BRANCH}'." >&2
@@ -310,14 +311,11 @@ spec:
 
       if [ "${PARAM_FETCH_TAGS}" = "true" ] ; then
         echo "Fetching tags"
-        if ! git fetch --tags; then
-          echo "Retrying fetch command..."
-          git fetch --tags
-        fi
+        retry git fetch --tags
       fi
 
   - name: symlink-check
-    image: quay.io/konflux-ci/git-clone@sha256:0e92b8a655d7b2eeba6442bbe008c92ad7f21ea23d8ad76cd95d45353338c1e0
+    image: quay.io/konflux-ci/git-clone@sha256:9baece0395f7b08540f8bfcfcc396533ef0e5bcb8b43f6a2c8fe98fd595c8b85
     # per https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting
     # the cluster will set imagePullPolicy to IfNotPresent
     env:
